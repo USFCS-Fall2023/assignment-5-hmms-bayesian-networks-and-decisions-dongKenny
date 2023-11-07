@@ -70,34 +70,84 @@ class HMM:
 
         return Observation(states, outputs)
 
-    def forward(self, observation):
+    def forward(self, observation, show_matrix=False):
         m = [[0. for _ in range(len(observation.outputseq) + 1)] for _ in range(len(self.transitions.keys()))]
-        states = {s: i+1 for i, s in enumerate(list(self.transitions.keys())[1:])}
+        states = {s: i for i, s in enumerate(list(self.transitions.keys()))}
+        state_idx = {v: k for k, v in states.items()}
+        del states['#']
 
         m[0][0] = 1.0
         for s in states:
-            m[states[s]][1] = self.transitions['#'][s] * self.emissions[s][observation.outputseq[0]]
+            if observation.outputseq[0] in self.emissions[s]:
+                m[states[s]][1] = self.transitions['#'][s] * self.emissions[s][observation.outputseq[0]]
 
         for i in range(2, len(observation.outputseq) + 1):
             for s in states:
                 total = 0
                 for s_2 in states:
-                    total += m[states[s_2]][i-1] * self.transitions[s_2][s] * self.emissions[s][observation.outputseq[i-1]]
+                    if observation.outputseq[i - 1] in self.emissions[s]:
+                        total += m[states[s_2]][i-1] * self.transitions[s_2][s] * self.emissions[s][observation.outputseq[i-1]]
                 m[states[s]][i] = total
 
-        for row in m:
-            for col in row:
-                print(f'{col: .9f}', end='')
-            print()
+        if show_matrix:
+            for row in m:
+                for col in row:
+                    print(f'{col: .9f}', end='')
+                print()
 
         values = [row[-1] for row in m]
         idx_max = np.argmax(values)
-        state_idx = {v: k for k, v in states.items()}
-        print(f'Most likely state is {state_idx[idx_max]}')
+        print(f'Most likely state is {state_idx[idx_max]}\n')
+        return m
 
-    def viterbi(self, observation):
+    def viterbi(self, observation, show_matrix=False):
         """given an observation,
         find and return the state sequence that generated
         the output sequence, using the Viterbi algorithm.
         """
-        pass
+        m = [[0. for _ in range(len(observation.outputseq) + 1)] for _ in range(len(self.transitions.keys()))]
+        back = [[0 for _ in range(len(observation.outputseq) + 1)] for _ in range(len(self.transitions.keys()))]
+        states = {s: i for i, s in enumerate(list(self.transitions.keys()))}
+        state_idx = {v: k for k, v in states.items()}
+        del states['#']
+
+        # Init forward matrix and backpointers to '#'
+        m[0][0] = 1.0
+        back[0][0] = -1
+        for s in states:
+            if observation.outputseq[0] in self.emissions[s]:
+                m[states[s]][1] = self.transitions['#'][s] * self.emissions[s][observation.outputseq[0]]
+                back[states[s]][1] = 0
+
+        # Forward + Viterbi
+        for i in range(2, len(observation.outputseq) + 1):
+            for s in states:
+                total = 0
+                values = []
+                for s_2 in states:
+                    if observation.outputseq[i - 1] in self.emissions[s]:
+                        step = m[states[s_2]][i - 1] * self.transitions[s_2][s] * self.emissions[s][observation.outputseq[i - 1]]
+                        total += step
+                        values.append(step)
+                if values:
+                    best_step_idx = np.argmax(values) + 1
+                    back[states[s]][i] = int(best_step_idx)
+                m[states[s]][i] = total
+
+        values = [row[-1] for row in m]
+        idx_max = np.argmax(values)
+
+        if show_matrix:
+            for row in back:
+                for col in row:
+                    print(f'{col: 3d}', end='')
+                print()
+
+        curr = idx_max
+        path = []
+        for i in range(len(back[0]) - 1, 0, -1):
+            path.append(curr)
+            curr = back[curr][i]
+
+        path = [state_idx[i] for i in reversed(path)]
+        return path
