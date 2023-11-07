@@ -96,3 +96,6 @@ def car_queries():
 
     print(q_5)
     print(q_6)
+
+    print('Probability unchanged for the radio working given the battery is working if the we discover the car has gas')
+    print('Probability affected for the ignition failing given the car does not move and we observe there is no gas')
