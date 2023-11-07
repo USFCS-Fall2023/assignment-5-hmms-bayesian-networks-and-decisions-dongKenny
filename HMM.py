@@ -6,6 +6,9 @@ import numpy
 
 
 # observations
+import numpy as np
+
+
 class Observation:
     def __init__(self, stateseq, outputseq):
         self.stateseq = stateseq  # sequence of states
@@ -60,19 +63,41 @@ class HMM:
             transition = random.choices(list(self.transitions[state].keys()), weights=self.transitions[state].values(), k=1)[0]
             emission = random.choices(list(self.emissions[transition].keys()), weights=self.emissions[transition].values(), k=1)[0]
 
-            states.append(state)
             outputs.append(emission)
 
             state = transition
+            states.append(state)
 
         return Observation(states, outputs)
 
+    def forward(self, observation):
+        m = [[0. for _ in range(len(observation.outputseq) + 1)] for _ in range(len(self.transitions.keys()))]
+        states = {s: i+1 for i, s in enumerate(list(self.transitions.keys())[1:])}
 
-    # you do this: Implement the Viterbi alborithm. Given an Observation (a list of outputs or emissions)
-    # determine the most likely sequence of states.
+        m[0][0] = 1.0
+        for s in states:
+            m[states[s]][1] = self.transitions['#'][s] * self.emissions[s][observation.outputseq[0]]
+
+        for i in range(2, len(observation.outputseq) + 1):
+            for s in states:
+                total = 0
+                for s_2 in states:
+                    total += m[states[s_2]][i-1] * self.transitions[s_2][s] * self.emissions[s][observation.outputseq[i-1]]
+                m[states[s]][i] = total
+
+        for row in m:
+            for col in row:
+                print(f'{col: .9f}', end='')
+            print()
+
+        values = [row[-1] for row in m]
+        idx_max = np.argmax(values)
+        state_idx = {v: k for k, v in states.items()}
+        print(f'Most likely state is {state_idx[idx_max]}')
 
     def viterbi(self, observation):
         """given an observation,
         find and return the state sequence that generated
         the output sequence, using the Viterbi algorithm.
         """
+        pass
